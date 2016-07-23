@@ -134,6 +134,21 @@ class Ratio
     
     
     /**
+     * Inverts the ratio by swapping the antecedent and consequent.
+     *
+     * @return Ratio
+     */
+    public function invert() : Ratio
+    {
+        if ($this->antecedent === $this->consequent) {
+            return $this;
+        }
+        
+        return new static($this->consequent, $this->antecedent);
+    }
+    
+    
+    /**
      * Determines if the ratio is exactly equal to 1.
      *
      * @return bool

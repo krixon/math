@@ -200,4 +200,28 @@ class RatioTest extends \PHPUnit_Framework_TestCase
         
         Ratio::fromString('10:0')->toFraction();
     }
+    
+    
+    /**
+     * @dataProvider inversionProvider
+     *
+     * @param string $ratio
+     * @param string $expected
+     */
+    public function testCanInvert(string $ratio, string $expected)
+    {
+        $ratio = Ratio::fromString($ratio);
+        
+        self::assertSame($expected, $ratio->invert()->toString());
+    }
+    
+    
+    public function inversionProvider()
+    {
+        return [
+            ['3:2', '2:3'],
+            ['1:2', '2:1'],
+            ['1:1', '1:1'],
+        ];
+    }
 }
