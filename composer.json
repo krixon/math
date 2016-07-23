@@ -1,0 +1,29 @@
+{
+  "name": "krixon/math",
+  "license": "proprietary",
+  "type": "library",
+  "description": "Mathematics library",
+  "authors": [
+    {
+      "name": "Karl Rixon",
+      "email": "karlrixon@gmail.com"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "Krixon\\Math\\": "src/",
+      "Krixon\\Math\\Test\\": "tests/"
+    }
+  },
+  "require": {
+    "php": ">=7",
+    "ext-bcmath": "*"
+
+  },
+  "require-dev": {
+    "phpspec/phpspec": "2.5.*",
+    "phpunit/phpunit": "5.2.*",
+    "squizlabs/php_codesniffer": "2.6.2"
+  },
+  "minimum-stability": "stable"
+}
