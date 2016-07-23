@@ -29,13 +29,11 @@ class Ratio
      */
     public static function fromString(string $string) : Ratio
     {
-        if (!preg_match('/^(?:\d+|\d*(\.\d+)?):(?:\d+|\d*(\.\d+)?)?$/', $string)) {
+        if (!preg_match('/^(\d+|\d*(?:\.\d+)?):(\d+|\d*(?:\.\d+)?)?$/', $string, $matches)) {
             throw new \InvalidArgumentException("Ratio must be created with a string in the form 'A:B'.");
         }
         
-        $parts = explode(':', $string, 2);
-        
-        return new static($parts[0], $parts[1]);
+        return new static($matches[1], $matches[2]);
     }
     
     
