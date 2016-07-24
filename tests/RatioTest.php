@@ -2,6 +2,7 @@
 
 namespace Krixon\Math\Test;
 
+use Krixon\Math\Decimal;
 use Krixon\Math\Fraction;
 use Krixon\Math\Ratio;
 
@@ -102,15 +103,33 @@ class RatioTest extends \PHPUnit_Framework_TestCase
     /**
      * @dataProvider validDecimalStringOutputProvider
      *
-     * @param string $ratio
-     * @param string $expected
-     * @param int    $scale
+     * @param string   $ratio
+     * @param string   $expected
+     * @param int|null $scale
      */
-    public function testCanConvertToDecimalString(string $ratio, string $expected, int $scale)
+    public function testCanConvertToDecimalString(string $ratio, string $expected, int $scale = null)
     {
         $ratio = Ratio::fromString($ratio);
     
         self::assertSame($expected, $ratio->toDecimalString($scale));
+    }
+    
+    
+    /**
+     * @dataProvider validDecimalStringOutputProvider
+     * @covers Krixon\Math\Ratio::toDecimal
+     *
+     * @param string   $ratio
+     * @param string   $expected
+     * @param int|null $scale
+     */
+    public function testCanConvertToDecimal(string $ratio, string $expected, int $scale = null)
+    {
+        $ratio   = Ratio::fromString($ratio);
+        $decimal = $ratio->toDecimal($scale);
+        
+        self::assertInstanceOf(Decimal::class, $decimal);
+        self::assertSame($expected, $decimal->toString());
     }
     
     
@@ -121,8 +140,20 @@ class RatioTest extends \PHPUnit_Framework_TestCase
     {
         return [
             ['0.5:1', '0.5', 1],
+            ['0.5:1', '0.5', null],
             ['0.5:1', '0.50000', 5],
             ['3:2', '1.50', 2],
+            ['3:2', '1.5', null],
+            ['1:2', '0.5', null],
+            ['501:400', '1.2525', null],
+            ['501:400', '1.25', 2],
+            ['501:400', '1.252500', 6],
+            ['1:2', '0.5', 1],
+            ['1:2', '0.50', 2],
+            ['3:4', '0.75', 2],
+            ['4:3', '1.33', 2],
+            ['4:3', '1.33333333333333333333', 20],
+            ['4:3', '1.3333333333333333333333333333333333333333', 40],
         ];
     }
     
@@ -222,6 +253,31 @@ class RatioTest extends \PHPUnit_Framework_TestCase
             ['3:2', '2:3'],
             ['1:2', '2:1'],
             ['1:1', '1:1'],
+        ];
+    }
+    
+    
+    /**
+     * @dataProvider clearDecimalsProvider
+     *
+     * @param string $ratio
+     * @param string $expected
+     */
+    public function testCanClearDecimals(string $ratio, string $expected)
+    {
+        $ratio = Ratio::fromString($ratio);
+        
+        self::assertSame($expected, $ratio->clearDecimals()->toString());
+    }
+    
+    
+    public function clearDecimalsProvider()
+    {
+        return [
+            ['1.5:2', '15:20'],
+            ['0.2:0.004', '200:4'],
+            ['0.07:1.4', '7:140'],
+            ['6.3:8.4', '63:84'],
         ];
     }
 }

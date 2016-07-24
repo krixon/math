@@ -16,9 +16,11 @@ class Ratio
      */
     public function __construct(string $antecedent, string $consequent)
     {
-        // Use bcmul to get consistent leading zeros (always 1).
-        $this->antecedent = bcmul($antecedent, 1, self::SCALE);
-        $this->consequent = bcmul($consequent, 1, self::SCALE);
+        $scale = self::maxDecimalPlaces($antecedent, $consequent);
+        
+        // Ensure both parts have consistent leading zeros (always 1).
+        $this->antecedent = bcmul($antecedent, 1, $scale);
+        $this->consequent = bcmul($consequent, 1, $scale);
     }
     
     
@@ -88,11 +90,26 @@ class Ratio
             );
         }
         
-        list($numerator, $denominator) = self::clearDecimals($this->antecedent, $this->consequent);
+        $cleared     = $this->clearDecimals();
+        $numerator   = (int)$cleared->antecedent();
+        $denominator = (int)$cleared->consequent();
         
-        $fraction = new Fraction((int)$numerator, (int)$denominator);
+        $fraction = new Fraction($numerator, $denominator);
         
         return $fraction->simplify();
+    }
+    
+    
+    /**
+     * Converts the ratio to a Decimal of the specified scale.
+     *
+     * @param int|null $scale
+     *
+     * @return Decimal
+     */
+    public function toDecimal($scale = null) : Decimal
+    {
+        return Decimal::fromString($this->toDecimalString($scale));
     }
     
     
@@ -110,15 +127,31 @@ class Ratio
     /**
      * Converts the Ratio to a decimal string.
      *
-     * For example, the ratio 2:3 at a scale of 2 will result in the string '1.50'.
+     * For example, the ratio 2:3 at a scale of 2 will result in the string '1.50'. With no specified scale this will
+     * result in a string of '1.5'.
      *
-     * @param int $scale The number of digits after the decimal place.
+     * For decimals with long (or infinite) mantissas, the default scale (self::SCALE) will be used unless a higher
+     * scale is specified.
+     *
+     * @param int|null $scale The number of digits after the decimal place. Note that this does not round. If no scale
+     *                        is specified, the decimal string will be as short as possible whilst maintaining as
+     *                        much information from the ratio as possible.
      *
      * @return string
      */
-    public function toDecimalString(int $scale = self::SCALE) : string
+    public function toDecimalString(int $scale = null) : string
     {
-        return bcdiv($this->antecedent, $this->consequent, $scale);
+        if (null !== $scale) {
+            return bcdiv($this->antecedent, $this->consequent, $scale);
+        }
+    
+        // No scale specified, calculate based on the default scale and then get rid of any extraneous zeros.
+        // Note that usually these zeros would be considered significant, but the caller specifically requested
+        // that we use the lowest possible precision decimal without losing any information from the ratio.
+        
+        $decimal = bcdiv($this->antecedent, $this->consequent, self::SCALE);
+        
+        return rtrim($decimal, '0');
     }
     
     
@@ -172,51 +205,48 @@ class Ratio
     
     
     /**
-     * Counts the number of significant digits in the value.
-     *
-     * @param $value
-     *
-     * @return int
+     * @return Ratio
      */
-    private static function countSignificantDigits($value) : int
+    public function clearDecimals() : Ratio
     {
-        return strlen(substr(strrchr($value, '.'), 1));
-    }
-    
-    
-    /**
-     * @param string[] $values
-     *
-     * @return array
-     */
-    private static function clearDecimals(string ...$values) : array
-    {
-        $significantDigits = self::maxSignificantDigits(...$values);
-        $multiplier        = 10 ** $significantDigits;
-        
-        array_walk($values, function (string &$value) use ($multiplier) {
-            $value = bcmul($value, $multiplier, self::SCALE);
-        });
-        
-        return $values;
-    }
-    
-    
-    /**
-     * Calculates the maximum number of significant digits from the set of values.
-     *
-     * @param string[] $values
-     *
-     * @return int
-     */
-    private static function maxSignificantDigits(string ...$values) : int
-    {
-        $significantDigits = 0;
-        
-        foreach ($values as $value) {
-            $significantDigits = max($significantDigits, self::countSignificantDigits($value));
+        if (!$this->containsDecimal()) {
+            return $this;
         }
         
-        return $significantDigits;
+        $decimalPlaces = self::maxDecimalPlaces($this->antecedent, $this->consequent);
+        $multiplier    = 10 ** $decimalPlaces;
+        
+        $antecedent = bcmul($this->antecedent, $multiplier, 0);
+        $consequent = bcmul($this->consequent, $multiplier, 0);
+        
+        return new static($antecedent, $consequent);
+    }
+    
+    
+    /**
+     * Determines if the ratio contains a decimal point in its antecedent or consequent.
+     *
+     * @return bool
+     */
+    public function containsDecimal()
+    {
+        return strpos($this->toString(), '.') !== false;
+    }
+    
+    
+    /**
+     * Calculates the maximum number of decimal places in the antecedent and consequent.
+     *
+     * @param string $antecedent
+     * @param string $consequent
+     *
+     * @return int
+     */
+    private static function maxDecimalPlaces(string $antecedent, string $consequent) : int
+    {
+        $antecedent = Decimal::fromString($antecedent);
+        $consequent = Decimal::fromString($consequent);
+        
+        return max($antecedent->countDecimalPlaces(), $consequent->countDecimalPlaces());
     }
 }
