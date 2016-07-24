@@ -2,25 +2,44 @@
 
 namespace Krixon\Math;
 
+/**
+ * The ratio between two numbers.
+ *
+ * The two numbers can be integers or decimals. In order to support arbitrary precision, the numbers are expressed as
+ * strings.
+ */
 class Ratio
 {
     const SCALE = 20;
     
-    private $antecedent;
-    private $consequent;
+    /**
+     * @var Decimal
+     */
+    private $dividend;
+    
+    /**
+     * @var Decimal
+     */
+    private $divisor;
+    
+    /**
+     * @var Decimal
+     */
+    private $gcd;
     
     
     /**
-     * @param string $antecedent The ratio's antecedent (value to the left of the colon).
-     * @param string $consequent The ratio's consequent (value to the right of the colon).
+     * @param Decimal $dividend The ratio's dividend.
+     * @param Decimal $divisor  The ratio's divisor.
      */
-    public function __construct(string $antecedent, string $consequent)
+    public function __construct(Decimal $dividend, Decimal $divisor)
     {
-        $scale = self::maxDecimalPlaces($antecedent, $consequent);
+        if ($divisor->isZero()) {
+            throw new \InvalidArgumentException('Cannot create Ratio with zero consequent.');
+        }
         
-        // Ensure both parts have consistent leading zeros (always 1).
-        $this->antecedent = bcmul($antecedent, 1, $scale);
-        $this->consequent = bcmul($consequent, 1, $scale);
+        $this->dividend = $dividend;
+        $this->divisor  = $divisor;
     }
     
     
@@ -31,153 +50,69 @@ class Ratio
      */
     public static function fromString(string $string) : Ratio
     {
-        if (!preg_match('/^(\d+|\d*(?:\.\d+)?):(\d+|\d*(?:\.\d+)?)?$/', $string, $matches)) {
+        // This check is intentionally loose since colon at position 0 is invalid.
+        if (!strpos($string, ':')) {
             throw new \InvalidArgumentException("Ratio must be created with a string in the form 'A:B'.");
         }
         
-        return new static($matches[1], $matches[2]);
-    }
-    
-    
-    /**
-     * Creates a new instance from a decimal string.
-     *
-     * For example, given the string "0.5" this will create a new Ratio of "0.5:1". To get "1:2" instead, call
-     * simplify() on the returned instance.
-     *
-     * @param string $string
-     *
-     * @return Ratio
-     */
-    public static function fromDecimalString(string $string) : Ratio
-    {
-        return static::fromString("$string:1");
-    }
-    
-    
-    /**
-     * The Ratio's antecedent (digits before the colon).
-     *
-     * @return string
-     */
-    public function antecedent() : string
-    {
-        return $this->antecedent;
-    }
-    
-    
-    /**
-     * The Ratio's consequent (digits after the colon).
-     *
-     * @return string
-     */
-    public function consequent() : string
-    {
-        return $this->consequent;
-    }
-    
-    
-    /**
-     * Converts the Ratio to a Fraction.
-     *
-     * @return Fraction
-     */
-    public function toFraction() : Fraction
-    {
-        if (bccomp($this->consequent, 0, self::SCALE) === 0) {
-            throw new \LogicException(
-                'Cannot convert Ratio ' . $this->toString() . ' to a Fraction because its consequent is zero.'
-            );
+        $parts = explode(':', trim($string), 2);
+        
+        try {
+            $antecedent = Decimal::fromString($parts[0]);
+            $consequent = Decimal::fromString($parts[1]);
+        } catch (\InvalidArgumentException $e) {
+            throw new \InvalidArgumentException("Ratio must be created with a string in the form 'A:B'.", 0, $e);
         }
         
-        $cleared     = $this->clearDecimals();
-        $numerator   = (int)$cleared->antecedent();
-        $denominator = (int)$cleared->consequent();
-        
-        $fraction = new Fraction($numerator, $denominator);
-        
-        return $fraction->simplify();
+        return new static($antecedent, $consequent);
     }
     
     
     /**
-     * Converts the ratio to a Decimal of the specified scale.
-     *
-     * @param int|null $scale
+     * The Ratio's dividend (digits before the colon).
      *
      * @return Decimal
      */
-    public function toDecimal($scale = null) : Decimal
+    public function dividend() : Decimal
     {
-        return Decimal::fromString($this->toDecimalString($scale));
+        return $this->dividend;
     }
     
     
     /**
-     * Converts the Ratio to a string.
+     * The Ratio's divisor (digits after the colon).
      *
-     * @return string
+     * @return Decimal
      */
-    public function toString() : string
+    public function divisor() : Decimal
     {
-        return $this->antecedent . ':' . $this->consequent;
+        return $this->divisor;
     }
     
     
     /**
-     * Converts the Ratio to a decimal string.
+     * Calculates the greatest common divisor of the ratio's dividend and divisor.
      *
-     * For example, the ratio 2:3 at a scale of 2 will result in the string '1.50'. With no specified scale this will
-     * result in a string of '1.5'.
-     *
-     * For decimals with long (or infinite) mantissas, the default scale (self::SCALE) will be used unless a higher
-     * scale is specified.
-     *
-     * @param int|null $scale The number of digits after the decimal place. Note that this does not round. If no scale
-     *                        is specified, the decimal string will be as short as possible whilst maintaining as
-     *                        much information from the ratio as possible.
-     *
-     * @return string
+     * @return Decimal
      */
-    public function toDecimalString(int $scale = null) : string
+    public function greatestCommonDivisor() : Decimal
     {
-        if (null !== $scale) {
-            return bcdiv($this->antecedent, $this->consequent, $scale);
-        }
-    
-        // No scale specified, calculate based on the default scale and then get rid of any extraneous zeros.
-        // Note that usually these zeros would be considered significant, but the caller specifically requested
-        // that we use the lowest possible precision decimal without losing any information from the ratio.
-        
-        $decimal = bcdiv($this->antecedent, $this->consequent, self::SCALE);
-        
-        return rtrim($decimal, '0');
-    }
-    
-    
-    /**
-     * Simplifies the ratio by converting the antecedent and consequent to the smallest possible integers.
-     *
-     * @return Ratio
-     */
-    public function simplify() : Ratio
-    {
-        return $this->toFraction()->toRatio();
-    }
-    
-    
-    /**
-     * Inverts the ratio by swapping the antecedent and consequent.
-     *
-     * @return Ratio
-     */
-    public function invert() : Ratio
-    {
-        if ($this->antecedent === $this->consequent) {
-            return $this;
+        if (null !== $this->gcd) {
+            return $this->gcd;
         }
         
-        return new static($this->consequent, $this->antecedent);
+        $cleared = $this->clearDecimals();
+        
+        $a = $cleared->dividend->toString();
+        $b = $cleared->divisor->toString();
+        
+        while (bccomp($b, '0') !== 0) {
+            list ($a, $b) = [$b, bcmod($a, $b)];
+        }
+        
+        $gcd = new Decimal($a);
+        
+        return $this->gcd = $gcd->abs();
     }
     
     
@@ -193,14 +128,69 @@ class Ratio
     
     
     /**
+     * Determines if the Fraction is simplified.
+     *
+     * @return bool
+     */
+    public function isSimplified() : bool
+    {
+        return $this->greatestCommonDivisor()->equals(Decimal::one());
+    }
+    
+    
+    /**
+     * Compares the Ratio with another at the specified scale.
+     *
      * @param Ratio $other
+     * @param int   $scale
      *
      * @return int An integer less than, equal to or greater than 0 when this instance is respectively less than,
      *             equal to or greater than the $other instance.
      */
-    public function compare(Ratio $other) : int
+    public function compare(Ratio $other, int $scale = null) : int
     {
-        return bccomp($this->simplify()->toDecimalString(), $other->simplify()->toDecimalString(), self::SCALE);
+        if ($this === $other) {
+            return 0;
+        }
+        
+        return $this->toDecimal()->compare($other->toDecimal(), $scale);
+    }
+    
+    
+    /**
+     * Simplifies the ratio by converting the antecedent and consequent to the smallest possible integers.
+     *
+     * @return Ratio
+     */
+    public function simplify() : Ratio
+    {
+        if ($this->isSimplified()) {
+            return $this->clearDecimals();
+        }
+        
+        $gcd      = $this->greatestCommonDivisor();
+        $instance = clone $this;
+        $instance = $instance->clearDecimals();
+    
+        $instance->dividend = $instance->dividend->divideBy($gcd, 0);
+        $instance->divisor  = $instance->divisor->divideBy($gcd, 0);
+    
+        return $instance;
+    }
+    
+    
+    /**
+     * Inverts the ratio by swapping the antecedent and consequent.
+     *
+     * @return Ratio
+     */
+    public function invert() : Ratio
+    {
+        if ($this->dividend->equals($this->divisor)) {
+            return $this;
+        }
+        
+        return new static($this->divisor, $this->dividend);
     }
     
     
@@ -209,17 +199,56 @@ class Ratio
      */
     public function clearDecimals() : Ratio
     {
-        if (!$this->containsDecimal()) {
+        if (!$this->containsDecimalPoint()) {
             return $this;
         }
         
-        $decimalPlaces = self::maxDecimalPlaces($this->antecedent, $this->consequent);
-        $multiplier    = 10 ** $decimalPlaces;
+        $decimalPlaces = max($this->dividend->countDecimalPlaces(), $this->divisor->countDecimalPlaces());
+        $multiplier    = bcpow(10, $decimalPlaces);
         
-        $antecedent = bcmul($this->antecedent, $multiplier, 0);
-        $consequent = bcmul($this->consequent, $multiplier, 0);
+        $antecedent = bcmul($this->dividend->toString(), $multiplier, 0);
+        $consequent = bcmul($this->divisor->toString(), $multiplier, 0);
         
-        return new static($antecedent, $consequent);
+        return new static(new Decimal($antecedent), new Decimal($consequent));
+    }
+    
+    
+    /**
+     * Converts the ratio to a Decimal of the specified scale.
+     *
+     * @param int|null $scale
+     *
+     * @return Decimal
+     */
+    public function toDecimal($scale = null) : Decimal
+    {
+        $antecedent = $this->dividend->toString();
+        $consequent = $this->divisor->toString();
+        
+        if (null !== $scale) {
+            return Decimal::fromString(bcdiv($antecedent, $consequent, $scale));
+        }
+        
+        // No scale specified, calculate based on the default scale and then get rid of any extraneous zeros.
+        // Note that usually these zeros would be considered significant, but the caller specifically requested
+        // that we use the lowest possible precision decimal without losing any information from the ratio.
+        
+        $decimal = bcdiv($antecedent, $consequent, self::SCALE);
+        $decimal = rtrim($decimal, '0');
+        $decimal = rtrim($decimal, '.');
+        
+        return Decimal::fromString($decimal);
+    }
+    
+    
+    /**
+     * Converts the Ratio to a string.
+     *
+     * @return string
+     */
+    public function toString() : string
+    {
+        return $this->dividend->toString() . ':' . $this->divisor->toString();
     }
     
     
@@ -228,25 +257,8 @@ class Ratio
      *
      * @return bool
      */
-    public function containsDecimal()
+    private function containsDecimalPoint()
     {
         return strpos($this->toString(), '.') !== false;
-    }
-    
-    
-    /**
-     * Calculates the maximum number of decimal places in the antecedent and consequent.
-     *
-     * @param string $antecedent
-     * @param string $consequent
-     *
-     * @return int
-     */
-    private static function maxDecimalPlaces(string $antecedent, string $consequent) : int
-    {
-        $antecedent = Decimal::fromString($antecedent);
-        $consequent = Decimal::fromString($consequent);
-        
-        return max($antecedent->countDecimalPlaces(), $consequent->countDecimalPlaces());
     }
 }

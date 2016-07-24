@@ -3,42 +3,29 @@
 namespace Krixon\Math\Test;
 
 use Krixon\Math\Decimal;
-use Krixon\Math\Fraction;
 use Krixon\Math\Ratio;
 
+/**
+ * @coversDefaultClass Krixon\Math\Ratio
+ * @covers ::<protected>
+ * @covers ::<private>
+ */
 class RatioTest extends \PHPUnit_Framework_TestCase
 {
     /**
-     * @dataProvider invalidStringProvider
-     *
-     * @param string $string
+     * @covers ::__construct
      */
-    public function testCannotInstantiateFromInvalidString(string $string)
+    public function testCanInstantiate()
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $ratio = new Ratio(Decimal::one(), Decimal::one());
         
-        Ratio::fromString($string);
-    }
-    
-    
-    /**
-     * @return array
-     */
-    public function invalidStringProvider() : array
-    {
-        return [
-            ['a:b'],
-            ['10:a'],
-            ['a:10'],
-            ['10a:10'],
-            ['10:10a'],
-            ['10a:10a'],
-        ];
+        self::assertInstanceOf(Ratio::class, $ratio);
     }
     
     
     /**
      * @dataProvider validStringProvider
+     * @covers ::fromString
      *
      * @param string $string
      * @param string $antecedent
@@ -46,10 +33,23 @@ class RatioTest extends \PHPUnit_Framework_TestCase
      */
     public function testCanInstantiateFromString(string $string, string $antecedent, string $consequent)
     {
-        $ratio = Ratio::fromString($string);
+        $ratio      = Ratio::fromString($string);
+        $antecedent = Decimal::fromString($antecedent);
+        $consequent = Decimal::fromString($consequent);
         
-        self::assertSame($antecedent, $ratio->antecedent());
-        self::assertSame($consequent, $ratio->consequent());
+        self::assertTrue($antecedent->equals($ratio->dividend()));
+        self::assertTrue($consequent->equals($ratio->divisor()));
+    }
+    
+    
+    /**
+     * @covers ::__construct
+     */
+    public function testCannotInstantiateWithZeroConsequent()
+    {
+        self::expectException(\InvalidArgumentException::class);
+        
+        new Ratio(Decimal::one(), Decimal::zero());
     }
     
     
@@ -75,49 +75,61 @@ class RatioTest extends \PHPUnit_Framework_TestCase
     
     
     /**
-     * @dataProvider validDecimalStringInputProvider
+     * @dataProvider invalidStringProvider
+     * @covers ::fromString
      *
      * @param string $string
-     * @param string $expected
      */
-    public function testCanInstantiateFromDecimalString(string $string, string $expected)
+    public function testCannotInstantiateFromInvalidString(string $string)
     {
-        $ratio = Ratio::fromDecimalString($string);
-    
-        self::assertSame($expected, $ratio->toString());
+        $this->expectException(\InvalidArgumentException::class);
+        
+        Ratio::fromString($string);
     }
     
     
     /**
      * @return array
      */
-    public function validDecimalStringInputProvider() : array
+    public function invalidStringProvider() : array
     {
         return [
-            ['.5',  '0.5:1'],
-            ['0.5', '0.5:1'],
+            ['a:b'],
+            ['10:a'],
+            ['a:10'],
+            ['10a:10'],
+            ['10:10a'],
+            ['10a:10a'],
+            ['10a10a'],
         ];
     }
     
     
     /**
-     * @dataProvider validDecimalStringOutputProvider
-     *
-     * @param string   $ratio
-     * @param string   $expected
-     * @param int|null $scale
+     * @covers ::dividend
      */
-    public function testCanConvertToDecimalString(string $ratio, string $expected, int $scale = null)
+    public function testCanAccessDividend()
     {
-        $ratio = Ratio::fromString($ratio);
-    
-        self::assertSame($expected, $ratio->toDecimalString($scale));
+        $ratio = Ratio::fromString('1:1');
+        
+        self::assertTrue($ratio->dividend()->equals(Decimal::one()));
     }
     
     
     /**
-     * @dataProvider validDecimalStringOutputProvider
-     * @covers Krixon\Math\Ratio::toDecimal
+     * @covers ::divisor
+     */
+    public function testCanAccessDivisor()
+    {
+        $ratio = Ratio::fromString('1:1');
+        
+        self::assertTrue($ratio->divisor()->equals(Decimal::one()));
+    }
+    
+    
+    /**
+     * @dataProvider validDecimalProvider
+     * @covers ::toDecimal
      *
      * @param string   $ratio
      * @param string   $expected
@@ -136,7 +148,7 @@ class RatioTest extends \PHPUnit_Framework_TestCase
     /**
      * @return array
      */
-    public function validDecimalStringOutputProvider() : array
+    public function validDecimalProvider() : array
     {
         return [
             ['0.5:1', '0.5', 1],
@@ -159,7 +171,63 @@ class RatioTest extends \PHPUnit_Framework_TestCase
     
     
     /**
+     * @covers ::toString
+     */
+    public function testCanConvertToString()
+    {
+        $string = '12:52';
+        $ratio  = Ratio::fromString($string);
+        
+        self::assertSame($string, $ratio->toString());
+    }
+    
+    
+    /**
+     * @dataProvider comparisonProvider
+     * @covers ::compare
+     *
+     * @param string $a
+     * @param string $b
+     * @param int    $expected
+     */
+    public function testCanCompare(string $a, string $b, int $expected)
+    {
+        $ratioA = Ratio::fromString($a);
+        
+        // This is to ensure we test the path where the same instance is used for comparison. In that case there
+        // is an optimisation which returns 0 without any further checking. This is really an implementation detail
+        // that cannot be explicitly tested, but this allows full coverage.
+        
+        $ratioB = $a === $b ? $ratioA : Ratio::fromString($b);
+        
+        $result = $ratioA->compare($ratioB);
+        
+        // Integer is not compared directly because Ratio::compare() only guarantees a return of <=> 0.
+        
+        if ($expected === -1) {
+            self::assertLessThan(0, $result);
+        } elseif ($expected === 1) {
+            self::assertGreaterThan(0, $result);
+        } else {
+            self::assertSame(0, $result);
+        }
+    }
+    
+    
+    public function comparisonProvider()
+    {
+        return [
+            ['2:1', '2:1', 0],
+            ['2:1', '4:2', 0],
+            ['2:1', '3:1', -1],
+            ['2:1', '1:1', 1],
+        ];
+    }
+    
+    
+    /**
      * @dataProvider simplifiedProvider
+     * @covers ::simplify
      *
      * @param string $string
      * @param string $expected
@@ -183,10 +251,25 @@ class RatioTest extends \PHPUnit_Framework_TestCase
             ['0.2:0.004', '50:1'],
             ['.07:1.4',   '1:20'],
             ['6.3:8.4',   '3:4'],
+            ['1.33:1',   '133:100'],
         ];
     }
     
     
+    /**
+     * @covers ::simplify
+     */
+    public function testSimplifyingAlreadySimplifiedRatioRecyclesInstance()
+    {
+        $ratio = Ratio::fromString('2:1');
+        
+        self::assertSame($ratio, $ratio->simplify());
+    }
+    
+    
+    /**
+     * @covers ::isOne
+     */
     public function testCanDetermineIfRatioIsOne()
     {
         self::assertTrue(Ratio::fromString('1:1')->isOne());
@@ -194,47 +277,8 @@ class RatioTest extends \PHPUnit_Framework_TestCase
     
     
     /**
-     * @dataProvider fractionConversionProvider
-     *
-     * @param $ratio
-     * @param $numerator
-     * @param $denominator
-     */
-    public function testCanConvertToFraction($ratio, $numerator, $denominator)
-    {
-        $ratio = Ratio::fromString($ratio);
-        $fraction = $ratio->toFraction();
-        
-        self::assertInstanceOf(Fraction::class, $fraction);
-        self::assertSame($numerator, $fraction->numerator());
-        self::assertSame($denominator, $fraction->denominator());
-    }
-    
-    
-    /**
-     * @return array
-     */
-    public function fractionConversionProvider() : array
-    {
-        return [
-            ['1.5:2',     3, 4],
-            ['0.2:0.004', 50, 1],
-            ['.07:1.4',   1, 20],
-            ['6.3:8.4',   3, 4],
-        ];
-    }
-    
-    
-    public function testCannotConvertToFractionWhenConsequentIsZero()
-    {
-        $this->expectException(\LogicException::class);
-        
-        Ratio::fromString('10:0')->toFraction();
-    }
-    
-    
-    /**
      * @dataProvider inversionProvider
+     * @covers ::invert
      *
      * @param string $ratio
      * @param string $expected
@@ -258,7 +302,19 @@ class RatioTest extends \PHPUnit_Framework_TestCase
     
     
     /**
+     * @covers ::invert
+     */
+    public function testInvertingSymmetricalRatioRecyclesInstance()
+    {
+        $ratio = Ratio::fromString('2:2');
+        
+        self::assertSame($ratio, $ratio->invert());
+    }
+    
+    
+    /**
      * @dataProvider clearDecimalsProvider
+     * @covers ::clearDecimals
      *
      * @param string $ratio
      * @param string $expected
@@ -274,10 +330,88 @@ class RatioTest extends \PHPUnit_Framework_TestCase
     public function clearDecimalsProvider()
     {
         return [
+            ['1:2', '1:2'],
             ['1.5:2', '15:20'],
             ['0.2:0.004', '200:4'],
             ['0.07:1.4', '7:140'],
             ['6.3:8.4', '63:84'],
+        ];
+    }
+    
+    
+    /**
+     * @dataProvider greatestCommonDivisorProvider
+     * @covers ::greatestCommonDivisor
+     *
+     * @param string $ratio
+     * @param int    $expected
+     */
+    public function testCanCalculateGreatestCommonDivisor($ratio, $expected)
+    {
+        $ratio    = Ratio::fromString($ratio);
+        $expected = Decimal::fromString($expected);
+        $result   = $ratio->greatestCommonDivisor();
+        
+        self::assertInstanceOf(Decimal::class, $result);
+        
+        self::assertTrue(
+            $expected->equals($result),
+            sprintf(
+                'Decimal with value %s is not equal to expected Decimal with value %s',
+                $result->toString(),
+                $expected->toString()
+            )
+        );
+    }
+    
+    
+    public function greatestCommonDivisorProvider()
+    {
+        
+        return [
+            ['1:2', 1],
+            ['18:78', 6],
+            ['30315475:24440870', '31415'],
+            ['37279462087332:366983722766', '564958'],
+            ['4323874085395:586898689868986900219865', '85'],
+            ['-4323874085395:586898689868986900219865', '85'],
+        ];
+    }
+    
+    
+    /**
+     * @covers ::greatestCommonDivisor
+     */
+    public function testGreatestCommonDivisorCalculationCachesResultBetweenCalls()
+    {
+        $ratio  = Ratio::fromString('18:78');
+        $result = $ratio->greatestCommonDivisor();
+        
+        self::assertSame($result, $ratio->greatestCommonDivisor());
+    }
+    
+    
+    /**
+     * @dataProvider isSimplifiedProvider
+     * @covers ::isSimplified
+     *
+     * @param string $ratio
+     * @param bool   $expected
+     */
+    public function testCanDetermineIfSimplified($ratio, bool $expected)
+    {
+        $ratio = Ratio::fromString($ratio);
+        
+        self::assertSame($expected, $ratio->isSimplified());
+    }
+    
+    
+    public function isSimplifiedProvider()
+    {
+        return [
+            ['1:2', true],
+            ['3:4', true],
+            ['18:78', false],
         ];
     }
 }
