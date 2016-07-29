@@ -171,6 +171,19 @@ class RatioTest extends \PHPUnit_Framework_TestCase
     
     
     /**
+     * @covers ::toDecimal
+     */
+    public function testCachesValueAsDecimalWhenNoScaleSpecified()
+    {
+        $ratio   = Ratio::fromString('2:1');
+        $decimal = $ratio->toDecimal();
+        
+        self::assertSame($decimal, $ratio->toDecimal());
+        self::assertNotSame($decimal, $ratio->toDecimal(5));
+    }
+    
+    
+    /**
      * @covers ::toString
      */
     public function testCanConvertToString()
