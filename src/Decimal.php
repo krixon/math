@@ -313,10 +313,16 @@ class Decimal
     /**
      * Converts the decimal to a string.
      *
+     * @param int $scale
+     *
      * @return string
      */
-    public function toString() : string
+    public function toString(int $scale = null) : string
     {
+        if (null !== $scale) {
+            return bcmul($this->value, 1, $scale);
+        }
+        
         return $this->value;
     }
     

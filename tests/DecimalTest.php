@@ -19,12 +19,13 @@ class DecimalTest extends \PHPUnit_Framework_TestCase
      *
      * @param string $decimal
      * @param string $expected
+     * @param int    $scale
      */
-    public function testCanCreateFromString(string $decimal, string $expected)
+    public function testCanCreateFromString(string $decimal, string $expected, int $scale = null)
     {
         $decimal = Decimal::fromString($decimal);
         
-        self::assertSame($expected, $decimal->toString());
+        self::assertSame($expected, $decimal->toString($scale));
     }
     
     
@@ -83,13 +84,17 @@ class DecimalTest extends \PHPUnit_Framework_TestCase
      *
      * @param string $decimal
      * @param string $expected
+     * @param int    $scale
      */
-    public function testCanConvertToString(string $decimal, string $expected)
+    public function testCanConvertToString(string $decimal, string $expected, int $scale = null)
     {
         $decimal = Decimal::fromString($decimal);
         
-        self::assertSame($expected, $decimal->toString());
-        self::assertSame($expected, (string)$decimal);
+        self::assertSame($expected, $decimal->toString($scale));
+        
+        if (null === $scale) {
+            self::assertSame($expected, (string)$decimal);
+        }
     }
     
     
@@ -107,6 +112,7 @@ class DecimalTest extends \PHPUnit_Framework_TestCase
             ['42.42', '42.42'],
             ['42', '42'],
             ['42.00', '42.00'],
+            ['42.12345', '42.123', 3],
         ];
     }
     
@@ -512,6 +518,7 @@ class DecimalTest extends \PHPUnit_Framework_TestCase
      * @param string $a
      * @param string $b
      * @param string $expected
+     * @param int    $scale
      */
     public function testPlus(string $a, string $b, string $expected, $scale = Decimal::SCALE)
     {
