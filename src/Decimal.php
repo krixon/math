@@ -319,8 +319,18 @@ class Decimal
      */
     public function toString(int $scale = null) : string
     {
-        if (null !== $scale) {
-            return bcmul($this->value, 1, $scale);
+        if ($scale !== null) {
+            $decimals = $this->countDecimalPlaces();
+            
+            // If we are truncating as number to scale we can just use bcmul.
+            if ($scale < $decimals) {
+                return bcmul($this->value, 1, $scale);
+            }
+            
+            // We are padding with zeroes.
+            if ($scale > $decimals) {
+                return sprintf("%s.%0-{$scale}s", $this->characteristic, $this->mantissa);
+            }
         }
         
         return $this->value;
