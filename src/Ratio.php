@@ -251,6 +251,30 @@ class Ratio
     
     
     /**
+     * Converts the ratio to a native int.
+     *
+     * @return int
+     */
+    public function toInteger() : int
+    {
+        return (int)$this->toDecimal()->characteristic();
+    }
+    
+    
+    /**
+     * Converts the ratio to a native float.
+     *
+     * This can result in loss of precision.
+     *
+     * @return float
+     */
+    public function toFloat() : float
+    {
+        return (float)$this->toDecimal()->toString();
+    }
+    
+    
+    /**
      * Converts the Ratio to a string.
      *
      * @return string

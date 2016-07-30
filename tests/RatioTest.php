@@ -184,6 +184,78 @@ class RatioTest extends \PHPUnit_Framework_TestCase
     
     
     /**
+     * @dataProvider validIntegerProvider
+     * @covers ::toInteger
+     *
+     * @param string $ratio
+     * @param int    $expected
+     */
+    public function testCanConvertToInt(string $ratio, int $expected)
+    {
+        $ratio = Ratio::fromString($ratio);
+        
+        self::assertSame($expected, $ratio->toInteger());
+    }
+    
+    
+    /**
+     * @return array
+     */
+    public function validIntegerProvider() : array
+    {
+        return [
+            ['0.5:1', 0],
+            ['3:2', 1],
+            ['501:400', 1],
+            ['1:2', 0],
+            ['3:4', 0],
+            ['4:3', 1],
+            ['8:1', 8],
+            ['8.5:1', 8],
+            ['8.9999:1', 8],
+            ['9:2', 4],
+        ];
+    }
+    
+    
+    /**
+     * @dataProvider validFloatProvider
+     * @covers ::toFloat
+     *
+     * @param string $ratio
+     * @param float  $expected
+     */
+    public function testCanConvertToFloat(string $ratio, float $expected)
+    {
+        $ratio  = Ratio::fromString($ratio);
+        $result = $ratio->toFloat();
+        
+        self::assertInternalType('float', $result);
+        self::assertEquals($expected, $result, 0.001);
+    }
+    
+    
+    /**
+     * @return array
+     */
+    public function validFloatProvider() : array
+    {
+        return [
+            ['0.5:1', 0.5],
+            ['3:2', 1.5],
+            ['501:400', 1.2525],
+            ['1:2', 0.5],
+            ['3:4', 0.75],
+            ['4:3', 1.33333333333],
+            ['8:1', 8.0],
+            ['8.5:1', 8.5],
+            ['8.9999:1', 8.9999],
+            ['9:2', 4.5],
+        ];
+    }
+    
+    
+    /**
      * @covers ::toString
      */
     public function testCanConvertToString()
