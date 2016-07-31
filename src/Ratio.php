@@ -208,7 +208,7 @@ class Ratio
             return $this;
         }
         
-        $decimalPlaces = max($this->dividend->countDecimalPlaces(), $this->divisor->countDecimalPlaces());
+        $decimalPlaces = max($this->dividend->numberOfDecimalPlaces(), $this->divisor->numberOfDecimalPlaces());
         $multiplier    = bcpow(10, $decimalPlaces);
         
         $antecedent = bcmul($this->dividend->toString(), $multiplier, 0);
@@ -240,7 +240,8 @@ class Ratio
         
         // No scale specified, calculate based on the default scale and then get rid of any extraneous zeros.
         // Note that usually these zeros would be considered significant, but the caller specifically requested
-        // that we use the lowest possible precision decimal without losing any information from the ratio.
+        // that we use the lowest possible precision decimal without losing any information from the ratio by not
+        // specifying a scale.
         
         $decimal = bcdiv($antecedent, $consequent, self::SCALE);
         $decimal = rtrim($decimal, '0');
