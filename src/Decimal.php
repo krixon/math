@@ -725,8 +725,6 @@ class Decimal
         }
         
         // Mantissa is too short, pad with zeroes to the correct scale.
-        if ($scale > $decimals) {
-            return sprintf("%0-{$scale}s", $mantissa);
-        }
+        return sprintf("%0-{$scale}s", $mantissa);
     }
 }
